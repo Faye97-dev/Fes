@@ -1,3 +1,4 @@
+from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 from .models import HOST
 from django.shortcuts import render
 from django.middleware import csrf
@@ -9,6 +10,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from .serializers import *
 from users.serializers import CompensationFullSerializer
+from users.models import Transfert
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from .models import *
 from .filters import *
@@ -56,7 +58,7 @@ class ClientViewsets(viewsets.ModelViewSet):
 class TransfertListAPIViews(generics.ListAPIView):
     serializer_class = TransfertFullSerializer
     permission_classes = [AllowAny]
-    queryset = Transfert.objects.all()
+    queryset = Transfert.objects.all().order_by('-date_creation')
     filterset_class = TransfertFilter
 
 
@@ -124,7 +126,7 @@ class ClotureViewsets(viewsets.ModelViewSet):
 class TransactionListAPIViews(generics.ListAPIView):
     serializer_class = TransactionFullSerializer
     permission_classes = [AllowAny]
-    queryset = Transaction.objects.all()
+    queryset = Transaction.objects.all().order_by('-date')
     filterset_class = TransactionFilter
 
     def list(self, request):
@@ -134,11 +136,12 @@ class TransactionListAPIViews(generics.ListAPIView):
         data = []
         # print(serializer.data)
         for d in serializer.data:
-            if d['type_transaction'] == Transaction.RETRAIT or d['type_transaction'] == Transaction.SUP_3000 or d['type_transaction'] == Transaction.INF_3000:
+            # if d['type_transaction'] == Transaction.RETRAIT or d['type_transaction'] == Transaction.SUP_3000 or d['type_transaction'] == Transaction.INF_3000:
+            if 'categorie_transaction' in list(d.keys()):
                 transfert = Transfert.objects.get(id=d['transaction'])
                 d['transaction'] = TransfertFullSerializer(transfert).data
                 data.append(d)
-            elif d['type_transaction'] == Transaction.COMP_RETRAIT or d['type_transaction'] == Transaction.COMP_VERSEMENT:
+            elif 'type_transaction' in list(d.keys()):
                 compensation = Compensation.objects.get(id=d['transaction'])
                 d['transaction'] = CompensationFullSerializer(
                     compensation).data
@@ -146,6 +149,28 @@ class TransactionListAPIViews(generics.ListAPIView):
             else:
                 data.append(d)
         return Response(data)
+
+
+class TransactionRetriveAPIViews(generics.RetrieveAPIView):
+    serializer_class = TransactionFullSerializer
+    permission_classes = [AllowAny]
+    queryset = Transaction.objects
+
+    def get(self, request, pk):
+        serializer = self.serializer_class(
+            self.get_queryset().get(id=pk), many=False)
+
+        d = serializer.data
+        if 'categorie_transaction' in list(d.keys()):
+            transfert = Transfert.objects.get(id=d['transaction'])
+            d['transaction'] = TransfertFullSerializer(transfert).data
+            return Response(d)
+        elif 'type_transaction' in list(d.keys()):
+            compensation = Compensation.objects.get(id=d['transaction'])
+            d['transaction'] = CompensationFullSerializer(compensation).data
+            return Response(d)
+        else:
+            return Response(d)
 
 
 class TransactionCreateAPIViews(generics.CreateAPIView):
@@ -174,6 +199,8 @@ def send_request(url, data, method, headers=None):
     return [result, response.status_code]
 
 
+@csrf_exempt
+# @ensure_csrf_cookie
 def add_transfert(request):
     # headers = {
     #     'X-CSRFToken': csrf.get_token(request)
@@ -182,9 +209,10 @@ def add_transfert(request):
     # headers={'Authorization': 'access_token myToken'}
 
     if request.method == 'POST':
-        form = request.POST['data']
-        data = json.loads(form)
 
+        #form = request.POST['data']
+        #data = json.loads(form)
+        data = json.loads(request.body.decode('utf-8'))
         # if data['type_transaction'] == Transfert.INF_3000:
         data['status'] = 'NOT_WITHDRAWED'
 
@@ -192,7 +220,8 @@ def add_transfert(request):
             HOST + 'api/transfert/create/', data, 'POST')
         if add_transfert[1] == 201:
             data = {
-                "type_transaction": add_transfert[0]['type_transaction'],
+                "categorie_transaction": add_transfert[0]['categorie_transaction'],
+                "type_transaction": Transaction.TRANSFERT,
                 "date": add_transfert[0]['date_creation'],
                 "agence": add_transfert[0]['agence_origine'],
                 "transaction": add_transfert[0]['id']
@@ -218,10 +247,12 @@ def add_transfert(request):
 
                 if update_agence[1] == 200:
                     status = update_agence[1]
-                    result = {}
-                    result['transfert'] = add_transfert[0]
-                    result['transaction'] = add_transaction[0]
-                    result['agence'] = update_agence[0]
+                    #result = {}
+                    #result['transfert'] = add_transfert[0]
+                    # result['transaction'] =
+                    result = send_request(
+                        HOST + 'api/transaction/get/'+str(add_transaction[0]['id'])+'/', None, 'GET')[0]
+                    #result['agence'] = update_agence[0]
                 else:
                     status = update_agence[1]
                     result = {}
@@ -269,27 +300,32 @@ def error_transfert(request):
         return HttpResponse(status=405)
 
 
+@csrf_exempt
 def add_retrait(request):
     if request.method == 'POST':
-        form = request.POST['data']
-        data = json.loads(form)
+        #form = request.POST['data']
+        #data = json.loads(form)
+        data = json.loads(request.body.decode('utf-8'))
         id_ = str(data['id'])
 
         data = send_request(HOST + 'api/transfert/get/'+id_+'/', None, 'GET')
-        data = data[0]
 
-        data['agence_destination'] = data['agence_destination']['id']
-        data['agence_origine'] = data['agence_origine']['id']
-        data['destinataire'] = data['destinataire']['id']
-        data['type_transaction'] = Transfert.RETRAIT
-        data['status'] = 'WITHDRAWED'
+        if data[1] == 200:
+            data = data[0]
+            data['agence_destination'] = data['agence_destination']['id']
+            data['agence_origine'] = data['agence_origine']['id']
+            data['destinataire'] = data['destinataire']['id']
+            data['status'] = 'WITHDRAWED'
+        else:
+            data = data[0]
 
         add_retrait = send_request(
             HOST + 'api/transfert/update/'+id_+'/', data, 'PUT')
 
         if add_retrait[1] == 200:
             data = {
-                "type_transaction": add_retrait[0]['type_transaction'],
+                "categorie_transaction": add_retrait[0]['categorie_transaction'],
+                "type_transaction": Transaction.RETRAIT,
                 "date": add_retrait[0]['date_modifcation'],
                 "agence": add_retrait[0]['agence_destination'],
                 "transaction": add_retrait[0]['id']
@@ -315,10 +351,12 @@ def add_retrait(request):
 
                 if update_agence[1] == 200:
                     status = update_agence[1]
-                    result = {}
-                    result['transfert'] = add_retrait[0]
-                    result['transaction'] = add_transaction[0]
-                    result['agence'] = update_agence[0]
+                    #result = {}
+                    #result['transfert'] = add_retrait[0]
+                    # result['transaction']
+                    result = send_request(
+                        HOST + 'api/transaction/get/'+str(add_transaction[0]['id'])+'/', None, 'GET')[0]
+                    #result['agence'] = update_agence[0]
                 else:
                     status = update_agence[1]
                     result = {}

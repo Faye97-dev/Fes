@@ -178,8 +178,8 @@ class TransactionModel(models.Model):
 
 
 class Compensation(TransactionModel):
-    COMP_VERSEMENT = '04'
-    COMP_RETRAIT = '05'
+    COMP_VERSEMENT = '03'
+    COMP_RETRAIT = '04'
     TYPES = [
         (COMP_VERSEMENT, 'COMP_VERSEMENT'),
         (COMP_RETRAIT, 'COMP_RETRAIT'),
@@ -210,13 +210,12 @@ class Client(models.Model):
 
 
 class Transfert(TransactionModel):
-    INF_3000 = '01'
-    SUP_3000 = '02'
-    RETRAIT = '03'
-    TYPES = [
+    INF_3000 = 'INF_3000'
+    SUP_3000 = 'SUP_3000'
+
+    CATEGORIES = [
         (INF_3000, 'INF_3000'),
         (SUP_3000, 'SUP_3000'),
-        (RETRAIT, 'RETRAIT'),
     ]
 
     agence_origine = models.ForeignKey(
@@ -231,9 +230,9 @@ class Transfert(TransactionModel):
     frais_destination = models.FloatField(default=0.0)
     frais_societe = models.FloatField(default=0.0)
 
-    type_transaction = models.CharField(
-        max_length=4,
-        choices=TYPES,
+    categorie_transaction = models.CharField(
+        max_length=50,
+        choices=CATEGORIES,
     )
 
     @property
@@ -247,26 +246,38 @@ class Transfert(TransactionModel):
 # Dashboard models
 
 class Transaction(models.Model):
-    INF_3000 = '01'
-    SUP_3000 = '02'
-    RETRAIT = '03'
-    COMP_VERSEMENT = '04'
-    COMP_RETRAIT = '05'
+    TRANSFERT = '01'
+    RETRAIT = '02'
+    COMP_VERSEMENT = '03'
+    COMP_RETRAIT = '04'
     TYPES = [
-        (INF_3000, 'INF_3000'),
-        (SUP_3000, 'SUP_3000'),
+        (TRANSFERT, 'TRANSFERT'),
         (RETRAIT, 'RETRAIT'),
         (COMP_VERSEMENT, 'COMP_VERSEMENT'),
         (COMP_RETRAIT, 'COMP_RETRAIT'),
+    ]
+
+    NONE = 'NONE'
+    INF_3000 = 'INF_3000'
+    SUP_3000 = 'SUP_3000'
+    CATEGORIES = [
+        (INF_3000, 'INF_3000'),
+        (SUP_3000, 'SUP_3000'),
+        (NONE, 'NONE'),
     ]
 
     agence = models.ForeignKey(
         Agence, related_name='transactions', on_delete=models.CASCADE)
     transaction = models.ForeignKey(
         TransactionModel, on_delete=models.CASCADE)
+
     type_transaction = models.CharField(
-        max_length=4,
+        max_length=50,
         choices=TYPES,
+    )
+    categorie_transaction = models.CharField(
+        max_length=50,
+        choices=CATEGORIES,
     )
     date = models.DateTimeField()
 

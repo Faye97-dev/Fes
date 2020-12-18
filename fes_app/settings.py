@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/3.1/ref/settings/
 """
 
+from corsheaders.defaults import default_headers
 from pathlib import Path
 from datetime import timedelta
 import os
@@ -46,6 +47,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -87,6 +89,8 @@ DATABASES = {
     }
 }
 '''
+#CSRF_HEADER_NAME = 'HTTP_HELLO'
+#CSRF_COOKIE_NAME = 'welcome'
 
 DATABASES = {
     'default': {
@@ -132,6 +136,13 @@ USE_L10N = True
 
 USE_TZ = True
 
+CORS_ALLOWED_ORIGINS = [
+    "http://127.0.0.1:3000",
+    "http://192.168.1.28:3000"
+]
+
+#CORS_ALLOWED_CREDENTIALS = True
+#CORS_ALLOW_HEADERS = list(default_headers)+['X-CSRFTOKEN']
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/3.1/howto/static-files/
@@ -154,6 +165,8 @@ REST_FRAMEWORK = {
     'DEFAULT_FILTER_BACKENDS': (
         'django_filters.rest_framework.DjangoFilterBackend',
     ),
+    'DATETIME_INPUT_FORMATS': ["%d/%m/%Y %H:%M:%S", ],
+    "DATETIME_FORMAT": "%d/%m/%Y %H:%M:%S",
 }
 
 SIMPLE_JWT = {

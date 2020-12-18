@@ -8,6 +8,7 @@ router.register('cloture', ClotureViewsets)
 
 urlpatterns = [
     path('commune/list/', CommuneAPIViews.as_view()),
+
     path('agence/list/', AgenceListAPIViews.as_view()),
     path('agence/update/<int:pk>/', AgenceUpdateAPIViews.as_view()),
     path('agence/get/<int:pk>/', AgenceRetriveAPIViews.as_view()),
@@ -24,6 +25,7 @@ urlpatterns = [
     path('compensation/get/<int:pk>/', CompensationRetriveAPIViews.as_view()),
 
     path('transaction/list/', TransactionListAPIViews.as_view()),
+    path('transaction/get/<int:pk>/', TransactionRetriveAPIViews.as_view()),
     path('transaction/create/', TransactionCreateAPIViews.as_view()),
 
     ###
